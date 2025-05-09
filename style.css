@@ -23,9 +23,12 @@
 
 body {
     font-family: Arial, sans-serif;
-    padding: 50px;
-    max-width: 1100px;
-    margin: auto;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 3rem 1rem;
+    box-sizing: border-box;
     background-color: var(--body-bgcolor);
 }
 h2{
@@ -63,14 +66,12 @@ input{
     margin-bottom: 50px;
 }
 
-#shiftForm{
+#shiftForm {
     background-color: var(--background);
-    margin-bottom: 1.5rem;
-    width: 70vw;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    width: 80vw; /* Use most of the screen */
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 button{
