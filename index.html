@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flat Rate vs Casual Pay Calculator</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <form id="shiftForm">
+    <div class="theme-switch-wrapper">
+      <span id="toggle-icon">
+        <span class="toggle-text">Light Mode</span>
+        <i class="fas fa-sun"></i>
+      </span>
+      <label class="theme-switch">
+        <input type="checkbox">
+        <span class="slider round"></span>
+      </label>
+    </div>
+    <div id="shiftsContainer">
+      <h2>Payslip Calculator</h2>
+    </div>
+      
+    <div class="containerOne">
+      <button class="add" type="button" onclick="addShift()">Add Another Week</button>
+    </div>
+
+    <div class="container">
+      <div class="details-container">
+        <label class="details">Hourly Rate Mon - Fri ($/hr):</label>
+        <input class="details" type="number" step="0.01" id="weekdayRate" required>
+      </div>
+      <div class="details-container">
+        <label class="details">Higher rate starts after (Mon - Fri):</label>
+        <input class="details" type="text" id="higherRateTime" placeholder="e.g. 6pm" required>
+      </div>
+      <div class="details-container">
+        <label class="details">Higher rate amount ($/hr):</label>
+        <input class="details" type="number" step="0.01" id="weekdayHigherRate" required>
+      </div>
+      <div class="details-container">
+        <label class="details" id="saturday">Hourly Rate Saturday ($/hr):</label>
+        <input class="details" type="number" step="0.01" id="saturdayRate" required>
+      </div>
+      <div class="details-container">
+        <label class="details" id="sunday">Hourly Rate Sunday ($/hr):</label>
+        <input class="details" type="number" step="0.01" id="sundayRate" required>
+      </div>
+      <br>
+      <button type="submit" class="compare">Get your payslip calculation</button>    
+      
+      <div id="totalsHrsDisplay"></div>
+      <div id="totalsDisplay"></div>   
+    </div>
+
+  </form>
+  <script src="script.js"></script>
+</body>
+</html>
