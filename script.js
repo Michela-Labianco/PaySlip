@@ -242,7 +242,7 @@ function updateTotals() {
   // ✅ Show pay
   payDisplay.innerHTML = `
     <p>💵 <strong>Payslip (before taxes):</strong> $${totalPay.toFixed(2)}</p>
-    <a href="https://www.ato.gov.au/single-page-applications/calculatorsandtools?anchor=STC#STC/questions" target="_blank">👉🏻 Click here to calculate your taxes</a>
+    <a href="https://www.ato.gov.au/single-page-applications/calculatorsandtools?anchor=TWC#TWC/questions" target="_blank">👉🏻 Click here to calculate your taxes</a>
   `;
 }
 
