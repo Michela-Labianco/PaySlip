@@ -94,30 +94,40 @@ function calculateShift(startStr, endStr, breakMinutes, higherTimeStr) {
   const higherTime = parseTimeToDecimal(convertTo24Hour(higherTimeStr)); // Convert higherTimeStr to 24-hour format, then to decimal hours
   const breakHours = breakMinutes / 60; //convert break time from minutes to hours
 
- if (end <= start) return { before: 0, after: 0 };
+  // If the shift end time is before or equal to start time, no work done
+  if (end <= start) return { before: 0, after: 0 };
 
-  const totalWorkedHours = end - start - breakHours;
-  if (totalWorkedHours <= 0) return { before: 0, after: 0 };
+  // Calculate raw hours before the higher rate time:
+  // Take the earlier of (higherTime, end) to avoid going past the shift end
+  // Then subtract the shift start time
+  // Math.max ensures negative values become 0 (no negative work hours)
+  const rawBefore = Math.max(0, Math.min(higherTime, end) - start);
 
-  // All before higher rate
-  if (end <= higherTime) return { before: totalWorkedHours, after: 0 };
+  // Calculate raw hours after the higher rate time:
+  // Take the later of (higherTime, start) to avoid going before shift start
+  // Then subtract from shift end time
+  // Math.max ensures no negative values
+  const rawAfter = Math.max(0, end - Math.max(higherTime, start));
 
-  // All after higher rate
-  if (start >= higherTime) return { before: 0, after: totalWorkedHours };
+  // Total raw worked hours before subtracting break
+  const totalRaw = rawBefore + rawAfter;
 
-  // Spans both
-  const hoursBefore = higherTime - start;
-  const hoursAfter = end - higherTime;
-  const totalSpan = hoursBefore + hoursAfter;
+  // If total raw worked hours is zero or less, return zero hours
+  if (totalRaw <= 0) return { before: 0, after: 0 };
 
-  // Get percentage of each segment, then apply to totalWorkedHours
-  const before = (hoursBefore / totalSpan) * totalWorkedHours;
-  const after = (hoursAfter / totalSpan) * totalWorkedHours;
+  // If break is longer than or equal to total worked hours, no paid hours
+  if (breakHours >= totalRaw) return { before: 0, after: 0 };
 
-  return {
-    before,
-    after
-  };
+  // Subtract break time proportionally from before and after segments:
+  // Calculate the fraction of the break that applies to the 'before' part,
+  // based on the proportion of rawBefore over totalRaw
+  const before = rawBefore - (breakHours * (rawBefore / totalRaw));
+
+  // Same for the 'after' part:
+  const after = rawAfter - (breakHours * (rawAfter / totalRaw));
+
+  // Return the adjusted hours worked before and after the higher rate time
+  return { before, after };
 }
 
 //get correct rate based on day of the week and whether the time is after the higher rate time
