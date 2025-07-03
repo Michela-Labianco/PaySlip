@@ -94,30 +94,29 @@ function calculateShift(startStr, endStr, breakMinutes, higherTimeStr) {
   const higherTime = parseTimeToDecimal(convertTo24Hour(higherTimeStr)); // Convert higherTimeStr to 24-hour format, then to decimal hours
   const breakHours = breakMinutes / 60; //convert break time from minutes to hours
 
-  
-  const rawHours = end - start; // total time before break
-  const totalHours = rawHours - breakHours; // working time after break
+ if (end <= start) return { before: 0, after: 0 };
 
-  if (end <= start || totalHours <= 0) return { before: 0, after: 0 };
+  const totalWorkedHours = end - start - breakHours;
+  if (totalWorkedHours <= 0) return { before: 0, after: 0 };
 
-  if (end <= higherTime) {
-    return { before: totalHours, after: 0 }; // all before higher rate
-  }
+  // All before higher rate
+  if (end <= higherTime) return { before: totalWorkedHours, after: 0 };
 
-  if (start >= higherTime) {
-    return { before: 0, after: totalHours }; // all after higher rate
-  }
+  // All after higher rate
+  if (start >= higherTime) return { before: 0, after: totalWorkedHours };
 
-  // Shift spans both before and after higherTime
-  const beforeDuration = higherTime - start;
-  const afterDuration = end - higherTime;
+  // Spans both
+  const hoursBefore = higherTime - start;
+  const hoursAfter = end - higherTime;
+  const totalSpan = hoursBefore + hoursAfter;
 
-  const beforeRatio = beforeDuration / rawHours;
-  const afterRatio = afterDuration / rawHours;
+  // Get percentage of each segment, then apply to totalWorkedHours
+  const before = (hoursBefore / totalSpan) * totalWorkedHours;
+  const after = (hoursAfter / totalSpan) * totalWorkedHours;
 
   return {
-    before: totalHours * beforeRatio,
-    after: totalHours * afterRatio,
+    before,
+    after
   };
 }
 
