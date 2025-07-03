@@ -88,10 +88,10 @@ function convertTo24Hour(timeStr) { //single argument expected to be a string re
   //: -> it combines them with a colon in between
 }
 
-function calculateShift(startStr, endStr, breakMinutes, higherTimeStr) {
+function calculateShift(startStr, endStr, breakMinutes, higherTimeDecimal) {
   const start = parseTimeToDecimal(startStr); //convert the start time to decimal hours
   const end = parseTimeToDecimal(endStr); //convert the end time to decimal hours
-  const higherTime = parseTimeToDecimal(convertTo24Hour(higherTimeStr)); // Convert higherTimeStr to 24-hour format, then to decimal hours
+  const higherTime = higherTimeDecimal; // already in decimal format, e.g., 19 for 7:00 PM
   const breakHours = breakMinutes / 60; //convert break time from minutes to hours
 
   // If the shift end time is before or equal to start time, no work done
@@ -217,6 +217,7 @@ function getRateInputsAndHigherTime() {
 
   //get and process the higher rate time, if provided
   const higherRateTimeStr = document.getElementById('higherRateTime').value.trim(); //get the string value and trim spaces
+  //higherRateTime decalred: it takes the sting input, converts it to 24hrs format and then convert that time string to decimal hours
   const higherRateTime = higherRateTimeStr 
   ? parseTimeToDecimal(convertTo24Hour(higherRateTimeStr)) //convert to 24hrs format and then to decimal hours
   : 0; //default to 0 if no time is given
@@ -248,14 +249,14 @@ function getAllShifts() {
         //this -> breakInput?.value safely tries to access the .value of breakInput
         const breakMinutes = parseFloat(breakInput?.value || 0); //parse break time, default to 0 if empty
 
-        //calculate hours and pay for that using the earlier function
-        const { hours, pay } = calculatePayForDay(
-          day, startInput.value, endInput.value, breakMinutes, rates, higherRateTime
-        );
+        //using destructuring to grab the before and after values from that object directly.
+        const { before, after } = calculateShift(startInput.value, endInput.value, breakMinutes, higherRateTime);
 
-        //only include with valid, positive hours
-        if (!isNaN(hours) && hours > 0) {
-          allShifts.push({ hours, rate: pay / hours }); //store them (push) to the original empty array
+        if (before > 0) {
+          allShifts.push({ hours: before, rate: getRate(day, false, rates) });
+        }
+        if (after > 0) {
+          allShifts.push({ hours: after, rate: getRate(day, true, rates) });
         }
       }
     }
