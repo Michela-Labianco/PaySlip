@@ -7,13 +7,17 @@ const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"
 const toggleIcon = document.querySelector('#toggle-icon');
 
 // Updates the toggle label and icon based on whether light mode is active
-function toggleDarkLightMode(theme) { //isLight is a boolean -> false for dark mode
-  //change the text based on the boolean
-  const isLight = theme === LIGHT_THEME;
+function toggleDarkLightMode(theme) { //theme is expected to be a string
+
+  //idetermine if the current theme is light beacause it checks if the theme string equals the constant LIGHT_THEME
+  const isLight = theme === LIGHT_THEME; //isLight is a boolean -> if light isLight will be true; otherwise, it's false.
+
+  // Update the toggle label text based on the theme
   toggleIcon.children[0].textContent = isLight ? 'Light Mode' : 'Dark Mode'; //first child element of the theme-switch-wrapper parent element
+
+  // Replace the icon class to reflect the theme
   toggleIcon.children[1].classList.replace(isLight ? 'fa-moon' : 'fa-sun', //second child element of the theme-switch-wrapper parent element
     isLight ? 'fa-sun' : 'fa-moon'
-    //to replace the icon class
   );
 }
 
@@ -57,57 +61,82 @@ function parseTimeToDecimal(timeStr) {
 }
 
 // Converts "6pm" or "7:30am" to "18:00" or "07:30"
-function convertTo24Hour(timeStr) {
-  if (typeof timeStr !== 'string') return "00:00";
+function convertTo24Hour(timeStr) { //single argument expected to be a string representing time in 12 hour format 
+  if (typeof timeStr !== 'string') return "00:00"; //check if the input is not a string. If it isn't it returns a default fallback value "00:00"
 
-  timeStr = timeStr.toLowerCase().trim();
-  const match = timeStr.match(/^(\d{1,2})(:(\d{2}))?\s*(am|pm)$/);
+  timeStr = timeStr.toLowerCase().trim(); //convert the input to lowercase and remove any spaces
+  const match = timeStr.match(/^(\d{1,2})(:(\d{2}))?\s*(am|pm)$/); 
 
-  if (!match) return "00:00"; // fallback to midnight
+  if (!match) return "00:00"; // If the input doesn't match the expected pattern, return "00:00" as a fallback.
 
-  let hour = parseInt(match[1]);
-  const minutes = match[3] ? parseInt(match[3]) : 0;
-  const period = match[4];
+  //match[1] is the first capturing group in the regular expression -> (/^(\d{1,2})(:(\d{2}))?\s*(am|pm)$/)
+  let hour = parseInt(match[1]); // extract and convert the hour part of the match into an integer
+  const minutes = match[3] ? parseInt(match[3]) : 0; // Extracts and converts the minutes (if present). 
+  //If so, it converts them into an integer. If not, it defaults the minutes to 0.
 
-  if (period === 'pm' && hour !== 12) hour += 12;
-  if (period === 'am' && hour === 12) hour = 0;
+  const period = match[4]; //extract wheter the time is am or pm from the matched string match[4]
 
+  if (period === 'pm' && hour !== 12) hour += 12; //If the time is in the PM (and the hour is not 12), 
+  //it adds 12 to convert afternoon hours (1–11 PM) to 24-hour format (13–23).
+
+  if (period === 'am' && hour === 12) hour = 0; //If it's midnight (12 AM), set hour to 0 (since 12 AM in 24-hour time is 00:00).
+
+  //to return time in 24 hour format
   return `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  //hour.toString().padStart(2, '0') to converts the hour to a string and ensures both hour and minutes are always two digits --> 10:30
+  //minutes.toString().padStart(2, '0') does the same for minutes
+  //: -> it combines them with a colon in between
 }
 
 function calculateShift(startStr, endStr, breakMinutes, higherTimeStr) {
-  const start = parseTimeToDecimal(startStr);
-  const end = parseTimeToDecimal(endStr);
-  const higherTime = parseTimeToDecimal(convertTo24Hour(higherTimeStr));
-  const breakHours = breakMinutes / 60;
+  const start = parseTimeToDecimal(startStr); //convert the start time to decimal hours
+  const end = parseTimeToDecimal(endStr); //convert the end time to decimal hours
+  const higherTime = parseTimeToDecimal(convertTo24Hour(higherTimeStr)); // Convert higherTimeStr to 24-hour format, then to decimal hours
+  const breakHours = breakMinutes / 60; //convert break time from minutes to hours
 
-  const totalHours = end - start - breakHours;
-  if (totalHours <= 0) return { before: 0, after: 0 };
+  
+  const rawHours = end - start; // total time before break
+  const totalHours = rawHours - breakHours; // working time after break
 
-  if (end <= higherTime) return { before: totalHours, after: 0 };
-  if (start >= higherTime) return { before: 0, after: totalHours };
+  if (end <= start || totalHours <= 0) return { before: 0, after: 0 };
 
-  const hoursBefore = higherTime - start;
-  const hoursAfter = totalHours - hoursBefore;
+  if (end <= higherTime) {
+    return { before: totalHours, after: 0 }; // all before higher rate
+  }
 
-  return { before: hoursBefore, after: hoursAfter };
+  if (start >= higherTime) {
+    return { before: 0, after: totalHours }; // all after higher rate
+  }
+
+  // Shift spans both before and after higherTime
+  const beforeDuration = higherTime - start;
+  const afterDuration = end - higherTime;
+
+  const beforeRatio = beforeDuration / rawHours;
+  const afterRatio = afterDuration / rawHours;
+
+  return {
+    before: totalHours * beforeRatio,
+    after: totalHours * afterRatio,
+  };
 }
 
-//get rate based on day and time
-function getRate(day, isAfterHigherTime, rates) {
-  if (day === 'sun') return rates.sunday;
-  if (day === 'sat') return rates.saturday;
-  return isAfterHigherTime ? rates.weekdayHigher : rates.weekday;
+//get correct rate based on day of the week and whether the time is after the higher rate time
+function getRate(day, isAfterHigherTime, rates) { 
+  if (day === 'sun') return rates.sunday; //if day is equal to ${createDayInput("sun", "Sunday")} then return the sunday rate
+  if (day === 'sat') return rates.saturday; //if day is equal to ${createDayInput("sat", "Saturday")} then return the saturday rate
+  return isAfterHigherTime ? rates.weekdayHigher : rates.weekday; //return the one that applies to the situation: 
+  //during the week if is after the higher time applies higher rate, if not then applies normal weekday rates
 }
 
 function calculatePayForDay(day, start, end, breakMin, rates, higherRateTime) {
-  const { before, after } = calculateShift(start, end, breakMin, higherRateTime);
-  const payBefore = before * getRate(day, false, rates);
-  const payAfter = after * getRate(day, true, rates);
+  const { before, after } = calculateShift(start, end, breakMin, higherRateTime); //split the worked hours into before and after the higher rate time 
+  const payBefore = before * getRate(day, false, rates); //pay it with the before rate
+  const payAfter = after * getRate(day, true, rates); //pay it with the after rate
 
   return {
-    hours: before + after,
-    pay: payBefore + payAfter
+    hours: before + after, //total hours worked before + after 
+    pay: payBefore + payAfter //total sum
   };
 }
 
@@ -116,12 +145,13 @@ function calculateRawHours(startStr, endStr, breakMinutes = 0) {
   const end = parseTimeToDecimal(endStr);
   const breakHours = breakMinutes / 60;
 
-  let total = end - start - breakHours;
-  return total > 0 ? total : 0;
+  let total = end - start - breakHours; //total working time subtractin break
+  return total > 0 ? total : 0; //if total is positive return it : otherwise return 0
 }
 
 
 
+//EJS
 // Generates HTML for a single day's inputs
 function createDayInput(dayCode, dayName) {
   return `
@@ -136,6 +166,7 @@ function createDayInput(dayCode, dayName) {
 
 //Adds a week's worth of shift inputs
 let weekCount = 1; //to track how many weeks we've added 
+//Starting with 1 aligns with how we naturally count weeks, months, days, etc.
 
 // Adds a new set of shift inputs for the week
 function addShift() {
@@ -146,6 +177,9 @@ function addShift() {
   div.className = "shift";
 
   // Fill it with 6 days (Monday to Saturday)
+  //using weekCount to label each group of shifts visually in the HTML h4
+  //also, when calling the function createDayInput(dayCode, dayName) 
+  // dayCode is "mon" and dayName is "Monday" (example)
   div.innerHTML = `
     <h4>Week ${weekCount}</h4>
     <div class="week-row">
@@ -162,82 +196,100 @@ function addShift() {
   weekCount++; //increase week counter
 }
 
+//DRY principle
+function getRateInputsAndHigherTime() {
+   //get and analyse(parse) the hourly rates from the input fields
+  const rates = {
+    weekday: parseFloat(document.getElementById('weekdayRate').value) || 0, //regular week day rate
+    weekdayHigher: parseFloat(document.getElementById('weekdayHigherRate').value) || 0, //higher weekday rate
+    saturday: parseFloat(document.getElementById('saturdayRate').value) || 0, //sat rate
+    sunday: parseFloat(document.getElementById('sundayRate').value) || 0, //sun rate
+  };
+
+  //get and process the higher rate time, if provided
+  const higherRateTimeStr = document.getElementById('higherRateTime').value.trim(); //get the string value and trim spaces
+  const higherRateTime = higherRateTimeStr 
+  ? parseTimeToDecimal(convertTo24Hour(higherRateTimeStr)) //convert to 24hrs format and then to decimal hours
+  : 0; //default to 0 if no time is given
+
+  return {rates, higherRateTimeStr, higherRateTime};
+}
+
 // Collects all filled-out shift inputs and returns them
 function getAllShifts() {
-  const shiftBlocks = document.querySelectorAll(".shift");
-  const allShifts = [];
+  const shiftBlocks = document.querySelectorAll(".shift"); //select all the shift blocks (each representing a week)
+  const allShifts = []; //initialize array to store shift data
 
-  const rates = {
-    weekday: parseFloat(document.getElementById('weekdayRate').value) || 0,
-    weekdayHigher: parseFloat(document.getElementById('weekdayHigherRate').value) || 0,
-    saturday: parseFloat(document.getElementById('saturdayRate').value) || 0,
-    sunday: parseFloat(document.getElementById('sundayRate').value) || 0,
-  };
-  const higherRateTimeStr = document.getElementById('higherRateTime').value.trim();
-  const higherRateTime = higherRateTimeStr ? parseTimeToDecimal(convertTo24Hour(higherRateTimeStr)) : 0;
+  const { rates, higherRateTime } = getRateInputsAndHigherTime(); //call the function here
+  //rates gives you all the users-entered hourly rate
+  //higherRateTime gives you the cutoff time in decimal format after which a weekday shift qualifies for higher pay.
 
-  for (const shift of shiftBlocks) {
-    const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  for (const shift of shiftBlocks) { //loop through each shift block (week)
+    const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]; //array of all days to check
+
+    //loop through each day of the week
     for (const day of days) {
-      const startInput = shift.querySelector(`input[name="start_${day}"]`);
-      const endInput = shift.querySelector(`input[name="end_${day}"]`);
-      const breakInput = shift.querySelector(`input[name="break_${day}"]`);
+      //check createDayInput function
+      const startInput = shift.querySelector(`input[name="start_${day}"]`); //get start time input for the day
+      const endInput = shift.querySelector(`input[name="end_${day}"]`); //get end time input for the day
+      const breakInput = shift.querySelector(`input[name="break_${day}"]`); //get break time input for the day
 
+      //only process the shift if both start and end times are provided
       if (startInput?.value && endInput?.value) {
-        const breakMinutes = parseFloat(breakInput?.value || 0);
+        //this -> breakInput?.value safely tries to access the .value of breakInput
+        const breakMinutes = parseFloat(breakInput?.value || 0); //parse break time, default to 0 if empty
+
+        //calculate hours and pay for that using the earlier function
         const { hours, pay } = calculatePayForDay(
           day, startInput.value, endInput.value, breakMinutes, rates, higherRateTime
         );
+
+        //only include with valid, positive hours
         if (!isNaN(hours) && hours > 0) {
-          allShifts.push({ hours, rate: pay / hours });
+          allShifts.push({ hours, rate: pay / hours }); //store them (push) to the original empty array
         }
       }
     }
   }
 
-  return allShifts;
+  return allShifts; //return the list of all valid shifts with calculated pay data
 }
 
 
 //Updates the total hours and pay shown on screen
 function updateTotals() {
-  const rates = {
-    weekday: parseFloat(document.getElementById('weekdayRate').value),
-    weekdayHigher: parseFloat(document.getElementById('weekdayHigherRate').value),
-    saturday: parseFloat(document.getElementById('saturdayRate').value),
-    sunday: parseFloat(document.getElementById('sundayRate').value),
-  };
+  //collects the rates from the input fields and converts them to floating point numbers
+  const { rates, higherRateTimeStr } = getRateInputsAndHigherTime(); //call the function here
 
-  const higherRateTime = document.getElementById('higherRateTime').value.trim();
-  const hasInvalidRate = Object.values(rates).some(rate => isNaN(rate));
+  const hasInvalidRate = Object.values(rates).some(rate => isNaN(rate)); //check for any invalid rate ()
+  const payDisplay = document.getElementById("totalsDisplay"); //find the id
+  const hourDisplay = document.getElementById("totalsHrsDisplay"); //find the id
 
-  const payDisplay = document.getElementById("totalsDisplay");
-  const hourDisplay = document.getElementById("totalsHrsDisplay");
-
-  if (hasInvalidRate || !higherRateTime) {
-    payDisplay.innerHTML = `<h2">Please complete all rate fields to calculate pay</h2>`;
-    hourDisplay.innerHTML = ``;
-    return;
+  if (hasInvalidRate || !higherRateTimeStr) { //if any rate is invalid or higher rate is missing
+    payDisplay.innerHTML = `<h2">Please complete all rate fields to calculate pay</h2>`; //show error message
+    hourDisplay.innerHTML = ``; //clear hour display
+    return; //exit function early
   }
 
-  const shifts = getAllShifts();
-  let totalHours = 0;
-  let totalPay = 0;
+  const shifts = getAllShifts(); //retrieve all shift data 
+  let totalHours = 0; //initialise total hours
+  let totalPay = 0; //initialise total pay
 
-  shifts.forEach(({ hours, rate }) => {
+  shifts.forEach(({ hours, rate }) => { //loop through each shift 
     console.log(`Shift: ${hours.toFixed(2)}h @ $${rate.toFixed(2)} → $${(hours * rate).toFixed(2)}`);
-    totalHours += hours;
-    totalPay += hours * rate;
+    //the rate for each shift is calculated and assigned inside the getAllShifts() function.
+    totalHours += hours; //add to total hours
+    totalPay += hours * rate; //add to total pay
 });
 
-  if (shifts.length === 0) {
-    payDisplay.innerHTML = `<h2>No shift data entered.</h2>`;
-    hourDisplay.innerHTML = ``;
-    return;
+  if (shifts.length === 0) { //if no shifts entered
+    payDisplay.innerHTML = `<h2>No shift data entered.</h2>`; //show error message
+    hourDisplay.innerHTML = ``; //clear hour display
+    return; //exit function
   }
 
   // ✅ Show total hours
-  hourDisplay.innerHTML = `<p>⏱️ <strong>Total Hours:</strong> ${totalHours.toFixed(2)} hrs</p>`;
+  hourDisplay.innerHTML = `<p>⏱️ <strong>Total Hours:</strong> ${totalHours.toFixed(2)} hrs</p>`; //display total hours
 
   // ✅ Show pay
   payDisplay.innerHTML = `
@@ -247,12 +299,12 @@ function updateTotals() {
 }
 
 
-//Handles form submission and calculates flat rate comparison
+//Handles form submission
 document.getElementById("shiftForm").addEventListener("submit", function(e) {
-  e.preventDefault(); // Stop page from reloading
-  updateTotals();
+  e.preventDefault(); // prevent the form from reloading the page
+  updateTotals(); //call the function to update totals
 });
 
 
-// Add the first week of shifts when the page loads
+// to automatically add the first week of shifts when the page loads
 addShift();
