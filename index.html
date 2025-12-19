@@ -16,7 +16,7 @@
         <i class="fas fa-sun"></i>
       </span>
       <label class="theme-switch">
-        <input type="checkbox">
+        <input id="theme-id" type="checkbox">
         <span class="slider round"></span>
       </label>
     </div>
@@ -40,6 +40,18 @@
       <div class="details-container">
         <label class="details">Higher rate amount ($/hr):</label>
         <input class="details" type="number" step="0.01" id="weekdayHigherRate" required>
+      </div>
+      <div class="details-container">
+        <label class="details">Night rate starts from (Mon - Fri):</label>
+        <input class="details" type="text" id="higherRateNightTimeStart" placeholder="e.g. 6am" required>
+      </div>
+      <div class="details-container">
+        <label class="details">Night rate ends at (Mon - Fri):</label> 
+        <input class="details" type="text" id="higherRateNightTimeEnd" placeholder="e.g. 12am" required>
+      </div>
+      <div class="details-container">
+        <label class="details">Higher rate amount ($/hr):</label>
+        <input class="details" type="number" step="0.01" id="weekdayNightHigherRate" required>
       </div>
       <div class="details-container">
         <label class="details" id="saturday">Hourly Rate Saturday ($/hr):</label>

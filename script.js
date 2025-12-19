@@ -88,46 +88,58 @@ function convertTo24Hour(timeStr) { //single argument expected to be a string re
   //: -> it combines them with a colon in between
 }
 
-function calculateShift(startStr, endStr, breakMinutes, higherTimeDecimal) {
-  const start = parseTimeToDecimal(startStr); //convert the start time to decimal hours
-  const end = parseTimeToDecimal(endStr); //convert the end time to decimal hours
-  const higherTime = higherTimeDecimal; // already in decimal format, e.g., 19 for 7:00 PM
-  const breakHours = breakMinutes / 60; //convert break time from minutes to hours
 
-  // If the shift end time is before or equal to start time, no work done
-  if (end <= start) return { before: 0, after: 0 };
+function calculateShift(startStr, endStr, breakMinutes, higherTimeDecimal, nightStartDecimal, nightEndDecimal, day) {
+  let start = parseTimeToDecimal(startStr);
+  let end = parseTimeToDecimal(endStr);
+  if (end <= start) end += 24; //if the end time is smaller than start, add 24 to treat it as next day
+  // === to handle overnight shifts
 
-  // Calculate raw hours before the higher rate time:
-  // Take the earlier of (higherTime, end) to avoid going past the shift end
-  // Then subtract the shift start time
-  // Math.max ensures negative values become 0 (no negative work hours)
-  const rawBefore = Math.max(0, Math.min(higherTime, end) - start);
+  const breakHours = breakMinutes / 60; //convert break minutes to hours
+  const workedHours = end - start - breakHours; //subtract break time
+  if (workedHours <= 0) return { normal: 0, after: 0, night: 0, day };  //return 0 if no work
 
-  // Calculate raw hours after the higher rate time:
-  // Take the later of (higherTime, start) to avoid going before shift start
-  // Then subtract from shift end time
-  // Math.max ensures no negative values
-  const rawAfter = Math.max(0, end - Math.max(higherTime, start));
+  let normal = 0, after = 0, night = 0; //initialise hour counters === simpler to track hours
+  
+  if (start < nightEndDecimal) { //does my shift start during the night period?
+    night = Math.min(workedHours, nightEndDecimal - start) 
+    //nightEndDecimal - start -> how many hours from my shift start until the night period ends?
+    //Math.min(workedHours, nightEndDecimal - start) -> don't count more night hours than the total shift
 
-  // Total raw worked hours before subtracting break
-  const totalRaw = rawBefore + rawAfter;
+    //example:
+    //night ends at 7am -> nightEndDecimal = 7
+    //shift starts at 6am -> start = 6
+    //worked hours = 5
+    //night = Math.min(5, 7 - 6) = min(5, 1) = first 1 hour is night hour 
 
-  // If total raw worked hours is zero or less, return zero hours
-  if (totalRaw <= 0) return { before: 0, after: 0 };
+  }
 
-  // If break is longer than or equal to total worked hours, no paid hours
-  if (breakHours >= totalRaw) return { before: 0, after: 0 };
+  const remaining = workedHours - night; //hours left after night hour/s goes to day/after hours
+  //remaining as the above example -> remaining = 5 - 1 = 4 hours left
 
-  // Subtract break time proportionally from before and after segments:
-  // Calculate the fraction of the break that applies to the 'before' part,
-  // based on the proportion of rawBefore over totalRaw
-  const before = rawBefore - (breakHours * (rawBefore / totalRaw));
+  // NORMAL + AFTER: work hours during the day and after higher rate time
+  const dayStart = Math.max(start, nightEndDecimal); //day starts is when the day time period starts for the shift
+  //either when shift starts after night or, night has ended ->nightEndDecimal
+  //day starts at 6, night ends at 7am -> dayStart = 7
 
-  // Same for the 'after' part:
-  const after = rawAfter - (breakHours * (rawAfter / totalRaw));
+  //only do this if there are hours left remaining > 0
+  if (remaining > 0 && dayStart < end) { //if there is still work left in day period
 
-  // Return the adjusted hours worked before and after the higher rate time
-  return { before, after };
+    const dayEnd = Math.min(end, higherTimeDecimal); //day end at either shift-end or higher rate time
+    
+    normal = Math.max(0, dayEnd - dayStart); //calculate normal hours 
+    normal = Math.min(normal, remaining); //ensure normal hours don't exceed remaining 
+    after = remaining - normal; //remaining after normal go to after-hours
+
+    //in other words :
+    //Night hours always come first.
+    // Then, daytime “normal” hours are counted up to the higher rate cutoff.
+    // Anything left is “after hours.”
+    //*********!!!!!!
+  } 
+
+  return { normal, after, night, day }; //updated to accept day so it use rates.saturday and rates.sunday
+  //return calculated hours per category
 }
 
 //get correct rate based on day of the week and whether the time is after the higher rate time
@@ -138,21 +150,23 @@ function getRate(day, isAfterHigherTime, rates) {
   //during the week if is after the higher time applies higher rate, if not then applies normal weekday rates
 }
 
-function calculatePayForDay(day, start, end, breakMin, rates, higherRateTime) {
-  const { before, after } = calculateShift(start, end, breakMin, higherRateTime); //split the worked hours into before and after the higher rate time 
+function calculatePayForDay(day, start, end, breakMin, rates, higherRateTime, nightStart, nightEnd) {
+  const { before, after, night } = calculateShift(start, end, breakMin, higherRateTime, nightStart, nightEnd); //split the worked hours into before and after the higher rate time 
   const payBefore = before * getRate(day, false, rates); //pay it with the before rate
   const payAfter = after * getRate(day, true, rates); //pay it with the after rate
+  const payNight = night * rates.weekdayNightHigher;
 
   return {
-    hours: before + after, //total hours worked before + after 
-    pay: payBefore + payAfter //total sum
+    hours: before + after + night, //total hours worked before + after 
+    pay: payBefore + payAfter + payNight //total sum
   };
 }
 
 function calculateRawHours(startStr, endStr, breakMinutes = 0) {
-  const start = parseTimeToDecimal(startStr);
-  const end = parseTimeToDecimal(endStr);
-  const breakHours = breakMinutes / 60;
+  const start = parseTimeToDecimal(startStr); //to convert the startStr (e.g., "09:00") into a decimal number of hours
+  const end = parseTimeToDecimal(endStr); //same for endStr
+  const breakHours = breakMinutes / 60; //to converts the break time from minutes to hours. 
+  //For example, 30 minutes becomes 0.5 hours.
 
   let total = end - start - breakHours; //total working time subtractin break
   return total > 0 ? total : 0; //if total is positive return it : otherwise return 0
@@ -211,18 +225,25 @@ function getRateInputsAndHigherTime() {
   const rates = {
     weekday: parseFloat(document.getElementById('weekdayRate').value) || 0, //regular week day rate
     weekdayHigher: parseFloat(document.getElementById('weekdayHigherRate').value) || 0, //higher weekday rate
+    weekdayNightHigher: parseFloat(document.getElementById('weekdayNightHigherRate').value) || 0, //higher night rate
     saturday: parseFloat(document.getElementById('saturdayRate').value) || 0, //sat rate
     sunday: parseFloat(document.getElementById('sundayRate').value) || 0, //sun rate
   };
 
   //get and process the higher rate time, if provided
   const higherRateTimeStr = document.getElementById('higherRateTime').value.trim(); //get the string value and trim spaces
-  //higherRateTime decalred: it takes the sting input, converts it to 24hrs format and then convert that time string to decimal hours
+  //higherRateTime declared: it takes the sting input, converts it to 24hrs format and then convert that time string to decimal hours
   const higherRateTime = higherRateTimeStr 
   ? parseTimeToDecimal(convertTo24Hour(higherRateTimeStr)) //convert to 24hrs format and then to decimal hours
   : 0; //default to 0 if no time is given
 
-  return {rates, higherRateTimeStr, higherRateTime};
+  const nightStartStr = document.getElementById('higherRateNightTimeStart').value.trim();
+  const nightStart = nightStartStr ? parseTimeToDecimal(convertTo24Hour(nightStartStr)) : 0;
+
+  const nightEndStr = document.getElementById('higherRateNightTimeEnd').value.trim();
+  const nightEnd = nightEndStr ? parseTimeToDecimal(convertTo24Hour(nightEndStr)) : 0;
+
+  return {rates, higherRateTimeStr, higherRateTime, nightStart, nightEnd};
 }
 
 // Collects all filled-out shift inputs and returns them
@@ -230,7 +251,7 @@ function getAllShifts() {
   const shiftBlocks = document.querySelectorAll(".shift"); //select all the shift blocks (each representing a week)
   const allShifts = []; //initialize array to store shift data
 
-  const { rates, higherRateTime } = getRateInputsAndHigherTime(); //call the function here
+  const { rates, higherRateTime, nightStart, nightEnd } = getRateInputsAndHigherTime(); //call the function here
   //rates gives you all the users-entered hourly rate
   //higherRateTime gives you the cutoff time in decimal format after which a weekday shift qualifies for higher pay.
 
@@ -249,15 +270,29 @@ function getAllShifts() {
         //this -> breakInput?.value safely tries to access the .value of breakInput
         const breakMinutes = parseFloat(breakInput?.value || 0); //parse break time, default to 0 if empty
 
-        //using destructuring to grab the before and after values from that object directly.
-        const { before, after } = calculateShift(startInput.value, endInput.value, breakMinutes, higherRateTime);
+        //using destructuring to grab the before, after and night values from that object directly.
+        const result = calculateShift(startInput.value, endInput.value, breakMinutes, higherRateTime, nightStart, nightEnd, day);
+        //PROBLEM: if nightEndDecimal is < than nightStartDecimal, the nightHours calculation may over count some hours
+        // if(!result || result.normal === undefined) continue; //safety
 
-        if (before > 0) {
-          allShifts.push({ hours: before, rate: getRate(day, false, rates) });
+        const totalHours = result.normal + result.after + result.night;
+
+        let pay = 0;
+
+        // SATURDAY & SUNDAY: FLAT RATE
+        if (day === 'sat') {
+          pay = totalHours * rates.saturday;
+        } else if (day === 'sun') {
+          pay = totalHours * rates.sunday;
+        } 
+        // MON–FRI: 3 RATES
+        else {
+          pay = result.normal * rates.weekday
+              + result.after * rates.weekdayHigher
+              + result.night * rates.weekdayNightHigher;
         }
-        if (after > 0) {
-          allShifts.push({ hours: after, rate: getRate(day, true, rates) });
-        }
+
+        allShifts.push({ hours: totalHours, pay }); //so you get the exact pay per hour
       }
     }
   }
@@ -285,11 +320,12 @@ function updateTotals() {
   let totalHours = 0; //initialise total hours
   let totalPay = 0; //initialise total pay
 
-  shifts.forEach(({ hours, rate }) => { //loop through each shift 
-    console.log(`Shift: ${hours.toFixed(2)}h @ $${rate.toFixed(2)} → $${(hours * rate).toFixed(2)}`);
+  console.log("ALL SHIFTS:", shifts);
+  shifts.forEach(shift => { //loop through each shift 
+    console.log(`Shift: ${shift.hours.toFixed(2)}h → $${shift.pay.toFixed(2)}`);
     //the rate for each shift is calculated and assigned inside the getAllShifts() function.
-    totalHours += hours; //add to total hours
-    totalPay += hours * rate; //add to total pay
+    totalHours += shift.hours; //add to total hours
+    totalPay += shift.pay; //add to total pay
 });
 
   if (shifts.length === 0) { //if no shifts entered
@@ -298,10 +334,10 @@ function updateTotals() {
     return; //exit function
   }
 
-  // ✅ Show total hours
+  //Show total hours
   hourDisplay.innerHTML = `<p>⏱️ <strong>Total Hours:</strong> ${totalHours.toFixed(2)} hrs</p>`; //display total hours
 
-  // ✅ Show pay
+  //Show pay
   payDisplay.innerHTML = `
     <p>💵 <strong>Payslip (before taxes):</strong> $${totalPay.toFixed(2)}</p>
     <a href="https://www.ato.gov.au/single-page-applications/calculatorsandtools?anchor=TWC#TWC/questions" target="_blank">👉🏻 Click here to calculate your taxes</a>
