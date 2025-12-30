@@ -9,6 +9,7 @@
     --slider-bgcolor: rgba(255, 255, 255, 0.6); 
     --slider-before-bgcolor: rgba(10, 123, 115, 0.4);
     --focuschecked-slider: #454343;
+    --copyright-color: #000;
 }
 
 [data-theme="dark"]{
@@ -19,6 +20,7 @@
     --background: rgba(3, 28, 27, 0.4);
     --btn-background-color: rgba(58, 72, 71, 0.6);
     --day-block-bgcolor: rgba(112, 122, 119, 0.6);
+    --copyright-color: #fff;
 }
 
 body {
@@ -237,6 +239,10 @@ border-radius: 50%;
 
 #totalsDisplay a {
     color: var(--text-primary-color);
+}
+
+.copyright{
+    color: var(--copyright-color);
 }
 
 @media (max-width:800px){
