@@ -313,6 +313,9 @@ border-radius: 50%;
     .containerOne{
         gap: 1rem;
     }
+    .details-container label{
+        font-size: 1.1rem;
+    }
     .week-row {
         flex-direction: column !important;
         align-items: center;
