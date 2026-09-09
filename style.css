@@ -67,7 +67,7 @@ input{
 }
 .day-block input{
     display: flex;
-    justify-content: center;
+    justify-content: end;
     text-align: center;
 }
 .shift {
@@ -305,7 +305,7 @@ border-radius: 50%;
         margin-left: 0;
     }
     .details-container input{
-        width: 90px;
+        width: 67px;
     }
     .add-week, .compare{
         width: 48%;
@@ -315,7 +315,7 @@ border-radius: 50%;
     }
     .details-container label{
         font-size: 1rem;
-        width: 240px;
+        width: 245px;
     }
     .week-row {
         flex-direction: column !important;
