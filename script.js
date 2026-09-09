@@ -218,6 +218,7 @@ function addShift() {
   container.appendChild(div); //add to the page 
   weekCount++; //increase week counter
 }
+document.querySelector('.add-week').addEventListener('click', addShift);
 
 //DRY principle
 function getRateInputsAndHigherTime() {
